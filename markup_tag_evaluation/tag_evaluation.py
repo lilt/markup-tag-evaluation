@@ -111,23 +111,25 @@ def tag_position_matches(reference_tags: List[Tag], hypothesis_tags: List[Tag]) 
 
 def position_differences(reference_tags: List[Tag], hypothesis_tags: List[Tag]) -> int:
     """ Returns the sum character difference between matching tags in the reference and hypothesis.
-        Is generous and selects the closes tag with the same content in case of ambiguity.
+        Is generous and selects the closest hypothesis tag with the same content
+        in case of ambiguity.
 
     >>> position_differences([Tag("a", 2), Tag("b", 0)], [Tag("a", 2), Tag("b", 5)])
     5
     >>> position_differences([Tag("a", 2), Tag("a", 0)], [Tag("a", 2), Tag("a", 5)])
-    3
+    2
     """
     position_diff_sum = 0
-    r_tags_dict = defaultdict(list)
-    for t in reference_tags:
-        r_tags_dict[t.content].append(t)
-
+    h_tags_dict = defaultdict(list)
     for t in hypothesis_tags:
-        if t.content not in r_tags_dict:
-            raise ValueError(f"Tag {t} does not appear in reference tags list {reference_tags}.")
+        h_tags_dict[t.content].append(t)
 
-        diff = min(abs(t.position - r.position) for r in r_tags_dict[t.content])
+    for ref_tag in reference_tags:
+        if ref_tag.content not in h_tags_dict:
+            raise ValueError(f"Tag {ref_tag} does not appear in hypothesis tags list:"
+                             f" {hypothesis_tags}.")
+
+        diff = min(abs(ref_tag.position - h.position) for h in h_tags_dict[ref_tag.content])
         position_diff_sum += diff
 
     return position_diff_sum
