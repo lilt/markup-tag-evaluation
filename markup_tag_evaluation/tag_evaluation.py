@@ -16,6 +16,8 @@ class TagMetric:
     number_of_tags: int
     number_of_correct_tags: int
     character_difference: int
+    number_of_inconsistent_sentences: int
+    number_of_sentences: int
 
     def accuracy(self) -> float:
         return self.number_of_correct_tags / max(1, self.number_of_tags)
@@ -23,20 +25,42 @@ class TagMetric:
     def average_character_difference(self) -> float:
         return self.character_difference / max(1, self.number_of_tags)
 
+    def inconsistent_sentences_percentage(self) -> float:
+        return self.number_of_inconsistent_sentences / max(1, self.number_of_inconsistent_sentences)
+
     def __add__(self, other: TagMetric) -> TagMetric:
         return TagMetric(
             self.number_of_tags + other.number_of_tags,
             self.number_of_correct_tags + other.number_of_correct_tags,
-            self.character_difference + other.character_difference
+            self.character_difference + other.character_difference,
+            self.number_of_inconsistent_sentences + other.number_of_inconsistent_sentences,
+            self.number_of_sentences + other.number_of_sentences,
         )
 
     def __str__(self):
-        acc_str = f"{100.0 * self.accuracy():.1f}% " \
+        acc_str = f"Tag Accuracy {100.0 * self.accuracy():.1f}% " \
                   f"({self.number_of_correct_tags}/{self.number_of_tags})"
-        char_diff_str = f"{self.average_character_difference():.1f} " \
+        char_diff_str = f"Average Character difference {self.average_character_difference():.1f} " \
                         f"({self.character_difference}/{self.number_of_tags})"
+        result_array = [
+            acc_str,
+            char_diff_str,
+        ]
+        if self.number_of_inconsistent_sentences > 0:
+            result_array.append(
+                f"Inconsistent Sentences {self.inconsistent_sentences_percentage():.1%} "
+                f"({self.inconsistent_sentences_percentage()}/{self.number_of_sentences})"
+            )
+        return "\n".join(result_array)
 
-        return f"Tag Accuracy {acc_str}\nAverage Character Difference: {char_diff_str}"
+
+SENTENCE_INCONSISTENT_TAG_METRIC = TagMetric(
+    number_of_tags=0,
+    number_of_correct_tags=0,
+    character_difference=0,
+    number_of_inconsistent_sentences=1,
+    number_of_sentences=1,
+)
 
 
 def is_sentence_with_tags_valid(sentence: str) -> bool:
@@ -109,14 +133,18 @@ def tag_position_matches(reference_tags: List[Tag], hypothesis_tags: List[Tag]) 
     return correct
 
 
-def position_differences(reference_tags: List[Tag], hypothesis_tags: List[Tag]) -> int:
+def position_differences(
+        reference_tags: List[Tag],
+        hypothesis_tags: List[Tag],
+        permissive: bool,
+) -> int:
     """ Returns the sum character difference between matching tags in the reference and hypothesis.
         Is generous and selects the closest hypothesis tag with the same content
         in case of ambiguity.
 
-    >>> position_differences([Tag("a", 2), Tag("b", 0)], [Tag("a", 2), Tag("b", 5)])
+    >>> position_differences([Tag("a", 2), Tag("b", 0)], [Tag("a", 2), Tag("b", 5)], False)
     5
-    >>> position_differences([Tag("a", 2), Tag("a", 0)], [Tag("a", 2), Tag("a", 5)])
+    >>> position_differences([Tag("a", 2), Tag("a", 0)], [Tag("a", 2), Tag("a", 5)], False)
     2
     """
     position_diff_sum = 0
@@ -126,43 +154,65 @@ def position_differences(reference_tags: List[Tag], hypothesis_tags: List[Tag]) 
 
     for ref_tag in reference_tags:
         if ref_tag.content not in h_tags_dict:
-            error_message = (f"Tag {ref_tag} does not appear in hypothesis tags list:"
+            error_message = (f"{ref_tag} does not appear in hypothesis tags list:"
                              f" {hypothesis_tags}.")
-            raise ValueError(error_message)
-
-        diff = min(abs(ref_tag.position - h.position) for h in h_tags_dict[ref_tag.content])
+            # Assume that we would have put the hypothesis tag at character position 0
+            diff = ref_tag.position - 0
+            if permissive:
+                print(error_message)
+            else:
+                raise ValueError(error_message)
+        else:
+            diff = min(abs(ref_tag.position - h.position) for h in h_tags_dict[ref_tag.content])
         position_diff_sum += diff
 
     return position_diff_sum
 
 
-def evaluate_segment(reference_with_tags: str, hypothesis_with_tags: str) -> TagMetric:
+def evaluate_segment(
+        reference_with_tags: str,
+        hypothesis_with_tags: str,
+        permissive: bool,
+) -> TagMetric:
     ref_sentence, ref_tags = extract_positions(reference_with_tags)
-    hyp_sentence, hyp_tags = extract_positions(hypothesis_with_tags)
+    try:
+        hyp_sentence, hyp_tags = extract_positions(hypothesis_with_tags)
+    except ValueError as e:
+        if permissive:
+            print(e)
+            return SENTENCE_INCONSISTENT_TAG_METRIC
+        else:
+            raise e
 
     if ref_sentence != hyp_sentence:
         error_message = (f"Reference without tags does not match hypothesis without tags: "
                          f"{ref_sentence=} {hyp_sentence=}")
-        raise ValueError(error_message)
+        if permissive:
+            return SENTENCE_INCONSISTENT_TAG_METRIC
+        else:
+            raise ValueError(error_message)
 
     result = TagMetric(
         number_of_tags=len(ref_tags),
         number_of_correct_tags=tag_position_matches(ref_tags, hyp_tags),
-        character_difference=position_differences(ref_tags, hyp_tags),
+        character_difference=position_differences(ref_tags, hyp_tags, permissive),
+        number_of_inconsistent_sentences=0,
+        number_of_sentences=1,
     )
     return result
 
 
 def evaluate_segments(
         reference_with_tags_list: List[str],
-        hypothesis_with_tags_list: List[str]
+        hypothesis_with_tags_list: List[str],
+        permissive: bool,
 ) -> TagMetric:
     if len(reference_with_tags_list) != len(hypothesis_with_tags_list):
         raise ValueError(f"Inconsistent length of arguments: {len(reference_with_tags_list)=} "
                          f"{len(hypothesis_with_tags_list)=}")
 
-    tag_metric_zero = TagMetric(0, 0, 0)
-    result = sum((evaluate_segment(ref, hyp) for ref, hyp in
+    tag_metric_zero = TagMetric(0, 0, 0, 0, 0)
+    result = sum((evaluate_segment(ref, hyp, permissive) for ref, hyp in
                   zip(reference_with_tags_list, hypothesis_with_tags_list)),
                  start=tag_metric_zero)
     return result

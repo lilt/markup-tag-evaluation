@@ -11,6 +11,8 @@ def parse_args():
                                      " based on a reference and a hypothesis.")
     parser.add_argument("reference", help="Path of the reference file including tags.")
     parser.add_argument("hypothesis", help="Path of the hypothesis file including tags.")
+    parser.add_argument("--permissive", action="store_true",
+                        help="Do not throw errors for inconsistent reference and hypothesis sentences")
 
     return parser.parse_args()
 
@@ -25,5 +27,5 @@ if __name__ == "__main__":
     reference = read_text(args.reference)
     hypothesis = read_text(args.hypothesis)
 
-    tag_metric = evaluate_segments(reference, hypothesis)
+    tag_metric = evaluate_segments(reference, hypothesis, args.permissive)
     print(tag_metric)
