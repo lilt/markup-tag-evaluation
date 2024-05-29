@@ -126,8 +126,9 @@ def position_differences(reference_tags: List[Tag], hypothesis_tags: List[Tag]) 
 
     for ref_tag in reference_tags:
         if ref_tag.content not in h_tags_dict:
-            raise ValueError(f"Tag {ref_tag} does not appear in hypothesis tags list:"
+            error_message = (f"Tag {ref_tag} does not appear in hypothesis tags list:"
                              f" {hypothesis_tags}.")
+            raise ValueError(error_message)
 
         diff = min(abs(ref_tag.position - h.position) for h in h_tags_dict[ref_tag.content])
         position_diff_sum += diff
@@ -140,8 +141,9 @@ def evaluate_segment(reference_with_tags: str, hypothesis_with_tags: str) -> Tag
     hyp_sentence, hyp_tags = extract_positions(hypothesis_with_tags)
 
     if ref_sentence != hyp_sentence:
-        raise ValueError(f"Reference without tags does not match hypothesis without tags:"
+        error_message = (f"Reference without tags does not match hypothesis without tags: "
                          f"{ref_sentence=} {hyp_sentence=}")
+        raise ValueError(error_message)
 
     result = TagMetric(
         number_of_tags=len(ref_tags),
@@ -157,7 +159,7 @@ def evaluate_segments(
 ) -> TagMetric:
     if len(reference_with_tags_list) != len(hypothesis_with_tags_list):
         raise ValueError(f"Inconsistent length of arguments: {len(reference_with_tags_list)=} "
-                         f"{hypothesis_with_tags_list=}")
+                         f"{len(hypothesis_with_tags_list)=}")
 
     tag_metric_zero = TagMetric(0, 0, 0)
     result = sum((evaluate_segment(ref, hyp) for ref, hyp in
