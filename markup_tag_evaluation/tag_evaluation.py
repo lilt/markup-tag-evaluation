@@ -114,21 +114,44 @@ def extract_positions(sentence_with_tags: str) -> Tuple[str, List[Tag]]:
     return sentence, tags
 
 
-def tag_position_matches(reference_tags: List[Tag], hypothesis_tags: List[Tag]) -> int:
+def tag_position_matches(
+        reference_tags: List[Tag],
+        hypothesis_tags: List[Tag],
+        permissive: bool,
+) -> int:
     """
     Returns the number of tags that are at the same character position
-    as their matching tags in the reference.
-    >>> tag_position_matches([Tag("a", 1)], [Tag("a", 1)])
+    as their matching tags in the reference. If there are excess tags in the hypothesis and
+    permissive is True, an error is thrown. Otherwise, each excess tag decreases the number
+    of correct tag matches by 1.
+    >>> tag_position_matches([Tag("a", 1)], [Tag("a", 1)], False)
     1
-    >>> tag_position_matches([Tag("a", 1), Tag("a", 5)], [Tag("a", 1), Tag("a", 1)])
+    >>> tag_position_matches([Tag("a", 1), Tag("a", 5)], [Tag("a", 1), Tag("a", 1)], False)
     1
+    >>> tag_position_matches([Tag("a", 0)], [], True)
+    0
+    >>> tag_position_matches([Tag("a", 0)], [Tag("a", 0), Tag("b", 2)], True)
+    0
     """
+    # First check if there are exactly the same number of reference and hypothesis tags
+    r_content_counter = Counter(x.content for x in reference_tags)
+    h_content_counter = Counter(x.content for x in hypothesis_tags)
+    if r_content_counter != h_content_counter:
+        content_counter_diff = h_content_counter - r_content_counter
+        if not permissive:
+            raise ValueError("Inconsistent tags between hypothesis and reference")
+        # Mark the excess tags in the hypothesis as inconsistency errors
+        # The excess tags in the reference are included as errors later on anyway.
+        inconsistent_tag_errors = sum(content_counter_diff.values())
+    else:
+        inconsistent_tag_errors = 0
+
     r_tag_counter = Counter(reference_tags)
     h_tag_counter = Counter(hypothesis_tags)
     diff_counter = r_tag_counter - h_tag_counter
 
     incorrect = sum(diff_counter.values())
-    correct = len(reference_tags) - incorrect
+    correct = abs(len(reference_tags) - incorrect - inconsistent_tag_errors)
 
     return correct
 
@@ -141,6 +164,8 @@ def position_differences(
     """ Returns the sum character difference between matching tags in the reference and hypothesis.
         Is generous and selects the closest hypothesis tag with the same content
         in case of ambiguity.
+        In case a reference tag is not in the hypothesis tag list, throws a value error if
+        permissive is True, otherwise assumes the tag is a character position 0 in the hypothesis.
 
     >>> position_differences([Tag("a", 2), Tag("b", 0)], [Tag("a", 2), Tag("b", 5)], False)
     5
@@ -194,7 +219,7 @@ def evaluate_segment(
 
     result = TagMetric(
         number_of_tags=len(ref_tags),
-        number_of_correct_tags=tag_position_matches(ref_tags, hyp_tags),
+        number_of_correct_tags=tag_position_matches(ref_tags, hyp_tags, permissive),
         character_difference=position_differences(ref_tags, hyp_tags, permissive),
         number_of_inconsistent_sentences=0,
         number_of_sentences=1,
