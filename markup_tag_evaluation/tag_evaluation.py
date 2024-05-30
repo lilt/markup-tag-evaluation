@@ -26,7 +26,7 @@ class TagMetric:
         return self.character_difference / max(1, self.number_of_tags)
 
     def inconsistent_sentences_percentage(self) -> float:
-        return self.number_of_inconsistent_sentences / max(1, self.number_of_inconsistent_sentences)
+        return self.number_of_inconsistent_sentences / max(1, self.number_of_sentences)
 
     def __add__(self, other: TagMetric) -> TagMetric:
         return TagMetric(
@@ -38,7 +38,7 @@ class TagMetric:
         )
 
     def __str__(self):
-        acc_str = f"Tag Accuracy {100.0 * self.accuracy():.1f}% " \
+        acc_str = f"Tag Accuracy {self.accuracy():.1%} " \
                   f"({self.number_of_correct_tags}/{self.number_of_tags})"
         char_diff_str = f"Average Character difference {self.average_character_difference():.1f} " \
                         f"({self.character_difference}/{self.number_of_tags})"
@@ -49,7 +49,7 @@ class TagMetric:
         if self.number_of_inconsistent_sentences > 0:
             result_array.append(
                 f"Inconsistent Sentences {self.inconsistent_sentences_percentage():.1%} "
-                f"({self.inconsistent_sentences_percentage()}/{self.number_of_sentences})"
+                f"({self.number_of_inconsistent_sentences}/{self.number_of_sentences})"
             )
         return "\n".join(result_array)
 
