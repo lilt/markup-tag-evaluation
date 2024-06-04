@@ -17,6 +17,7 @@ class TagMetric:
     number_of_correct_tags: int
     character_difference: int
     number_of_inconsistent_sentences: int
+    number_of_tags_in_inconsistent_sentences: int
     number_of_sentences: int
 
     def accuracy(self) -> float:
@@ -34,13 +35,15 @@ class TagMetric:
             self.number_of_correct_tags + other.number_of_correct_tags,
             self.character_difference + other.character_difference,
             self.number_of_inconsistent_sentences + other.number_of_inconsistent_sentences,
+            self.number_of_tags_in_inconsistent_sentences +
+            other.number_of_tags_in_inconsistent_sentences,
             self.number_of_sentences + other.number_of_sentences,
         )
 
     def __str__(self):
         acc_str = f"Tag Accuracy {self.accuracy():.1%} " \
                   f"({self.number_of_correct_tags}/{self.number_of_tags})"
-        char_diff_str = f"Average Character difference {self.average_character_difference():.1f} " \
+        char_diff_str = f"Average character difference {self.average_character_difference():.1f} " \
                         f"({self.character_difference}/{self.number_of_tags})"
         result_array = [
             acc_str,
@@ -48,19 +51,22 @@ class TagMetric:
         ]
         if self.number_of_inconsistent_sentences > 0:
             result_array.append(
-                f"Inconsistent Sentences {self.inconsistent_sentences_percentage():.1%} "
-                f"({self.number_of_inconsistent_sentences}/{self.number_of_sentences})"
+                f"Inconsistent sentences {self.inconsistent_sentences_percentage():.1%} "
+                f"({self.number_of_inconsistent_sentences}/{self.number_of_sentences})\n"
+                f"Tags in inconsistent sentences: {self.number_of_tags_in_inconsistent_sentences}"
             )
         return "\n".join(result_array)
 
 
-SENTENCE_INCONSISTENT_TAG_METRIC = TagMetric(
-    number_of_tags=0,
-    number_of_correct_tags=0,
-    character_difference=0,
-    number_of_inconsistent_sentences=1,
-    number_of_sentences=1,
-)
+def create_inconsistent_tag_metric(number_of_tags_in_sentence: int) -> TagMetric:
+    return TagMetric(
+        number_of_tags=0,
+        number_of_correct_tags=0,
+        character_difference=0,
+        number_of_inconsistent_sentences=1,
+        number_of_tags_in_inconsistent_sentences=number_of_tags_in_sentence,
+        number_of_sentences=1,
+    )
 
 
 def is_sentence_with_tags_valid(sentence: str) -> bool:
@@ -167,7 +173,7 @@ def evaluate_segment(
     except ValueError as e:
         if permissive:
             print(e)
-            return SENTENCE_INCONSISTENT_TAG_METRIC
+            return create_inconsistent_tag_metric(len(ref_tags))
         else:
             raise e
 
@@ -185,7 +191,7 @@ def evaluate_segment(
     if error_message is not None:
         if permissive:
             print(error_message)
-            return SENTENCE_INCONSISTENT_TAG_METRIC
+            return create_inconsistent_tag_metric(len(ref_tags))
         else:
             raise ValueError(error_message)
 
@@ -194,6 +200,7 @@ def evaluate_segment(
         number_of_correct_tags=tag_position_matches(ref_tags, hyp_tags),
         character_difference=position_differences(ref_tags, hyp_tags),
         number_of_inconsistent_sentences=0,
+        number_of_tags_in_inconsistent_sentences=0,
         number_of_sentences=1,
     )
     return result
@@ -208,7 +215,7 @@ def evaluate_segments(
         raise ValueError(f"Inconsistent length of arguments: {len(reference_with_tags_list)=} "
                          f"{len(hypothesis_with_tags_list)=}")
 
-    tag_metric_zero = TagMetric(0, 0, 0, 0, 0)
+    tag_metric_zero = TagMetric(0, 0, 0, 0, 0, 0)
     result = sum((evaluate_segment(ref, hyp, permissive) for ref, hyp in
                   zip(reference_with_tags_list, hypothesis_with_tags_list)),
                  start=tag_metric_zero)
