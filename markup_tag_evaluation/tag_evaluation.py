@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 from collections import defaultdict, Counter
-from typing import List, Tuple, NamedTuple
+from typing import List, Tuple, NamedTuple, Optional
 from dataclasses import dataclass
 
 
@@ -114,62 +114,33 @@ def extract_positions(sentence_with_tags: str) -> Tuple[str, List[Tag]]:
     return sentence, tags
 
 
-def tag_position_matches(
-        reference_tags: List[Tag],
-        hypothesis_tags: List[Tag],
-        permissive: bool,
-) -> int:
+def tag_position_matches(reference_tags: List[Tag], hypothesis_tags: List[Tag]) -> int:
     """
     Returns the number of tags that are at the same character position
-    as their matching tags in the reference. If there are excess tags in the hypothesis and
-    permissive is True, an error is thrown. Otherwise, each excess tag decreases the number
-    of correct tag matches by 1.
-    >>> tag_position_matches([Tag("a", 1)], [Tag("a", 1)], False)
+    as their matching tags in the reference.
+    >>> tag_position_matches([Tag("a", 1)], [Tag("a", 1)])
     1
-    >>> tag_position_matches([Tag("a", 1), Tag("a", 5)], [Tag("a", 1), Tag("a", 1)], False)
+    >>> tag_position_matches([Tag("a", 1), Tag("a", 5)], [Tag("a", 1), Tag("a", 1)])
     1
-    >>> tag_position_matches([Tag("a", 0)], [], True)
-    0
-    >>> tag_position_matches([Tag("a", 0)], [Tag("a", 0), Tag("b", 2)], True)
-    0
     """
-    # First check if there are exactly the same number of reference and hypothesis tags
-    r_content_counter = Counter(x.content for x in reference_tags)
-    h_content_counter = Counter(x.content for x in hypothesis_tags)
-    if r_content_counter != h_content_counter:
-        content_counter_diff = h_content_counter - r_content_counter
-        if not permissive:
-            raise ValueError("Inconsistent tags between hypothesis and reference")
-        # Mark the excess tags in the hypothesis as inconsistency errors
-        # The excess tags in the reference are included as errors later on anyway.
-        inconsistent_tag_errors = sum(content_counter_diff.values())
-    else:
-        inconsistent_tag_errors = 0
-
     r_tag_counter = Counter(reference_tags)
     h_tag_counter = Counter(hypothesis_tags)
     diff_counter = r_tag_counter - h_tag_counter
 
     incorrect = sum(diff_counter.values())
-    correct = abs(len(reference_tags) - incorrect - inconsistent_tag_errors)
+    correct = len(reference_tags) - incorrect
 
     return correct
 
 
-def position_differences(
-        reference_tags: List[Tag],
-        hypothesis_tags: List[Tag],
-        permissive: bool,
-) -> int:
+def position_differences(reference_tags: List[Tag], hypothesis_tags: List[Tag]) -> int:
     """ Returns the sum character difference between matching tags in the reference and hypothesis.
         Is generous and selects the closest hypothesis tag with the same content
         in case of ambiguity.
-        In case a reference tag is not in the hypothesis tag list, throws a value error if
-        permissive is True, otherwise assumes the tag is a character position 0 in the hypothesis.
 
-    >>> position_differences([Tag("a", 2), Tag("b", 0)], [Tag("a", 2), Tag("b", 5)], False)
+    >>> position_differences([Tag("a", 2), Tag("b", 0)], [Tag("a", 2), Tag("b", 5)])
     5
-    >>> position_differences([Tag("a", 2), Tag("a", 0)], [Tag("a", 2), Tag("a", 5)], False)
+    >>> position_differences([Tag("a", 2), Tag("a", 0)], [Tag("a", 2), Tag("a", 5)])
     2
     """
     position_diff_sum = 0
@@ -178,17 +149,8 @@ def position_differences(
         h_tags_dict[t.content].append(t)
 
     for ref_tag in reference_tags:
-        if ref_tag.content not in h_tags_dict:
-            error_message = (f"{ref_tag} does not appear in hypothesis tags list:"
-                             f" {hypothesis_tags}.")
-            # Assume that we would have put the hypothesis tag at character position 0
-            diff = ref_tag.position - 0
-            if permissive:
-                print(error_message)
-            else:
-                raise ValueError(error_message)
-        else:
-            diff = min(abs(ref_tag.position - h.position) for h in h_tags_dict[ref_tag.content])
+        assert ref_tag.content in h_tags_dict
+        diff = min(abs(ref_tag.position - h.position) for h in h_tags_dict[ref_tag.content])
         position_diff_sum += diff
 
     return position_diff_sum
@@ -209,18 +171,28 @@ def evaluate_segment(
         else:
             raise e
 
+    # Check for inconsistencies between reference and hypothesis
+    counter_reference_tags = Counter(x.content for x in ref_tags)
+    counter_hypothesis_tags = Counter(x.content for x in hyp_tags)
+    error_message: Optional[str] = None
     if ref_sentence != hyp_sentence:
         error_message = (f"Reference without tags does not match hypothesis without tags: "
                          f"{ref_sentence=} {hyp_sentence=}")
+
+    if error_message is None and counter_reference_tags != counter_hypothesis_tags:
+        error_message = (f"Inconsistent number of tags between reference and hypothesis, "
+                         f"{counter_reference_tags=} {counter_hypothesis_tags=}")
+    if error_message is not None:
         if permissive:
+            print(error_message)
             return SENTENCE_INCONSISTENT_TAG_METRIC
         else:
             raise ValueError(error_message)
 
     result = TagMetric(
         number_of_tags=len(ref_tags),
-        number_of_correct_tags=tag_position_matches(ref_tags, hyp_tags, permissive),
-        character_difference=position_differences(ref_tags, hyp_tags, permissive),
+        number_of_correct_tags=tag_position_matches(ref_tags, hyp_tags),
+        character_difference=position_differences(ref_tags, hyp_tags),
         number_of_inconsistent_sentences=0,
         number_of_sentences=1,
     )
