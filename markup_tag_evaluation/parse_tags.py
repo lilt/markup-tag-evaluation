@@ -110,5 +110,4 @@ def extract_positions_v2(sentence_with_tags: str) -> Tuple[str, List[Tag]]:
     assert not last_tag_was_tag_open_start
     assert not last_tag_was_self_closing_open_start
 
-    breakpoint()
     return sentence, tags
