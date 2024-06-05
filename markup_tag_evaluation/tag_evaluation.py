@@ -137,7 +137,15 @@ def evaluate_segment(
         tag_extraction_function: Callable[[str], Tuple[str, List[Tag]]],
         permissive: bool,
 ) -> TagMetric:
-    ref_sentence, ref_tags = tag_extraction_function(reference_with_tags)
+    try:
+        ref_sentence, ref_tags = tag_extraction_function(reference_with_tags)
+    except ValueError as e:
+        if permissive:
+            print(f"Inconsistent reference, ignoring sentence: {e}")
+            return TagMetric(0, 0, 0, 0, 0, 0)
+        else:
+            raise e
+
     try:
         hyp_sentence, hyp_tags = tag_extraction_function(hypothesis_with_tags)
     except ValueError as e:

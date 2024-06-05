@@ -78,22 +78,33 @@ def extract_positions_v2(sentence_with_tags: str) -> Tuple[str, List[Tag]]:
         content = tag_content_to_next_tag[tag_end_char_pos:]
 
         if current_tag == constants.V2_TAG_OPEN_START:
-            assert not last_tag_was_tag_open_start
+            if last_tag_was_tag_open_start:
+                raise ValueError(f"Inconsistent tag structure, "
+                                 f"{constants.V2_TAG_OPEN_START} was not followed by "
+                                 f"{constants.V2_TAG_OPEN_END}: {sentence_with_tags}")
             last_tag_was_tag_open_start = True
             content_start_pos_stack.append(content)
             new_tag = Tag(content, len(sentence))
             tags.append(new_tag)
             content = ""
         elif current_tag == constants.V2_TAG_OPEN_END:
-            assert last_tag_was_tag_open_start
+            if not last_tag_was_tag_open_start:
+                raise ValueError(f"Inconsistent tag structure, "
+                                 f"{constants.V2_TAG_OPEN_START} was not followed by "
+                                 f"{constants.V2_TAG_OPEN_END}: {sentence_with_tags}")
             last_tag_was_tag_open_start = False
         elif current_tag == constants.V2_TAG_CLOSE:
-            assert len(content_start_pos_stack) > 0
+            if len(content_start_pos_stack) == 0:
+                raise ValueError(f"Inconsistent tag structure, no opened tag to close with "
+                                 f"{constants.V2_TAG_CLOSE}: {sentence_with_tags}")
             tag_content = "/" + content_start_pos_stack.pop()
             new_tag = Tag(tag_content, len(sentence))
             tags.append(new_tag)
         elif current_tag == constants.V2_SELF_CLOSING_START:
-            assert not last_tag_was_self_closing_open_start
+            if last_tag_was_tag_open_start:
+                raise ValueError(f"Inconsistent tag structure for self closing tags:"
+                                 f"{sentence_with_tags}")
+
             last_tag_was_self_closing_open_start = True
             new_tag = Tag(content, len(sentence))
             tags.append(new_tag)
@@ -107,7 +118,9 @@ def extract_positions_v2(sentence_with_tags: str) -> Tuple[str, List[Tag]]:
         # Inefficient as multiple string concatenations
         sentence += content
 
-    assert not last_tag_was_tag_open_start
-    assert not last_tag_was_self_closing_open_start
+    if last_tag_was_tag_open_start or last_tag_was_self_closing_open_start \
+            or len(content_start_pos_stack) > 0:
+        raise ValueError(f"Inconsistent tag structure, not all tags were closed: "
+                         f"{sentence_with_tags}")
 
     return sentence, tags
