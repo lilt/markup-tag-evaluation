@@ -22,10 +22,14 @@ def read_text(path: str) -> List[str]:
         return [" ".join(s.split()) for s in f]
 
 
-if __name__ == "__main__":
+def main():
     args = parse_args()
     reference = read_text(args.reference)
     hypothesis = read_text(args.hypothesis)
 
     tag_metric = evaluate_segments(reference, hypothesis, args.permissive)
     print(tag_metric)
+
+
+if __name__ == "__main__":
+    main()
