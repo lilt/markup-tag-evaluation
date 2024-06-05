@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "markup-tag-evaluation"
+version = "0.1.1"
+requires-python = ">=3.8"
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [
+  {name = "Thomas Zenkel", email = "thomas@lilt.com"},
+]
+
+[project.optional-dependencies]
+dev = ["mypy>=1.0", "pycodestyle>=2.6"]
+
+[project.scripts]
+evaluate-markup-tags = "markup_tag_evaluation.evaluate_markup_tags:main"
+
+[tool.setuptools]
+packages = ["markup_tag_evaluation"]
+
