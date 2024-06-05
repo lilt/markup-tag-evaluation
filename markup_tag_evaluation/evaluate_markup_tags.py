@@ -8,12 +8,12 @@ from markup_tag_evaluation.parse_tags import extract_positions, extract_position
 
 
 def parse_args():
-    parser = argparse.ArgumentParser("Calculate the number of correctly placed tags (defined as <.*>)"
+    parser = argparse.ArgumentParser("Calculate the number of correctly placed tags"
                                      " based on a reference and a hypothesis.")
     parser.add_argument("reference", help="Path of the reference file including tags.")
     parser.add_argument("hypothesis", help="Path of the hypothesis file including tags.")
     parser.add_argument("--permissive", action="store_true",
-                        help="Do not throw errors for inconsistent reference and hypothesis sentences")
+                        help="Do not throw errors for inconsistent reference and hypothesis tags")
     parser.add_argument("--use_v2_tag_format", action="store_true",
                         help="Use version 2 tag format that allows arbitrary tag contents tag values")
 
@@ -25,7 +25,7 @@ def read_text(path: str) -> List[str]:
         return [" ".join(s.split()) for s in f]
 
 
-if __name__ == "__main__":
+def main():
     args = parse_args()
     reference = read_text(args.reference)
     hypothesis = read_text(args.hypothesis)
@@ -37,3 +37,7 @@ if __name__ == "__main__":
 
     tag_metric = evaluate_segments(reference, hypothesis, extract_tags_fn, args.permissive)
     print(tag_metric)
+
+
+if __name__ == "__main__":
+    main()

@@ -8,7 +8,7 @@ Chapter 3 of the paper [Automatic Bilingual Markup Transfer](https://aclantholog
 ## Installation and Usage
 ```
 pip install .
-./evaluate-markup-tags.py --help
+evaluate-markup-tags --help
 ```
 
 ## 
