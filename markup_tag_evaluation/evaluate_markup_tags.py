@@ -14,6 +14,8 @@ def parse_args():
     parser.add_argument("hypothesis", help="Path of the hypothesis file including tags.")
     parser.add_argument("--permissive", action="store_true",
                         help="Do not throw errors for inconsistent reference and hypothesis tags")
+    parser.add_argument("--compare_strip", action="store_true",
+                        help="Compare stripped strings without tags")
     parser.add_argument("--use_v2_tag_format", action="store_true",
                         help="Use version 2 tag format that allows arbitrary tag contents tag values")
 
@@ -35,7 +37,7 @@ def main():
     else:
         extract_tags_fn = extract_positions
 
-    tag_metric = evaluate_segments(reference, hypothesis, extract_tags_fn, args.permissive)
+    tag_metric = evaluate_segments(reference, hypothesis, extract_tags_fn, args.permissive, args.compare_strip)
     print(tag_metric)
 
 

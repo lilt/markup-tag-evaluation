@@ -136,6 +136,7 @@ def evaluate_segment(
         hypothesis_with_tags: str,
         tag_extraction_function: Callable[[str], Tuple[str, List[Tag]]],
         permissive: bool,
+        compare_strip: bool = False,
 ) -> TagMetric:
     try:
         ref_sentence, ref_tags = tag_extraction_function(reference_with_tags)
@@ -159,14 +160,18 @@ def evaluate_segment(
     counter_reference_tags = Counter(x.content for x in ref_tags)
     counter_hypothesis_tags = Counter(x.content for x in hyp_tags)
     error_message: Optional[str] = None
-    if ref_sentence != hyp_sentence:
+    if error_message is None and counter_reference_tags != counter_hypothesis_tags:
+        error_message = (f"Inconsistent number of tags between reference and hypothesis, "
+                         f"{counter_reference_tags=} {counter_hypothesis_tags=}")
+
+    if compare_strip:
+        ref_sentence = ref_sentence.strip()
+        hyp_sentence = hyp_sentence.strip()
+    if error_message is None and ref_sentence != hyp_sentence:
         strip_equal = ref_sentence.strip() == hyp_sentence.strip()
         error_message = (f"Reference without tags does not match hypothesis without tags: "
                          f"{ref_sentence=} {hyp_sentence=} {strip_equal=}")
 
-    if error_message is None and counter_reference_tags != counter_hypothesis_tags:
-        error_message = (f"Inconsistent number of tags between reference and hypothesis, "
-                         f"{counter_reference_tags=} {counter_hypothesis_tags=}")
     if error_message is not None:
         if permissive:
             print(error_message)
@@ -190,13 +195,14 @@ def evaluate_segments(
         hypothesis_with_tags_list: List[str],
         tag_extraction_function: Callable[[str], Tuple[str, List[Tag]]],
         permissive: bool,
+        compare_strip: bool = False,
 ) -> TagMetric:
     if len(reference_with_tags_list) != len(hypothesis_with_tags_list):
         raise ValueError(f"Inconsistent length of arguments: {len(reference_with_tags_list)=} "
                          f"{len(hypothesis_with_tags_list)=}")
 
     tag_metric_zero = TagMetric(0, 0, 0, 0, 0, 0)
-    result = sum((evaluate_segment(ref, hyp, tag_extraction_function, permissive) for ref, hyp in
+    result = sum((evaluate_segment(ref, hyp, tag_extraction_function, permissive, compare_strip) for ref, hyp in
                   zip(reference_with_tags_list, hypothesis_with_tags_list)),
                  start=tag_metric_zero)
     return result
