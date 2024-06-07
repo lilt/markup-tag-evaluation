@@ -139,7 +139,7 @@ def evaluate_segment(
 ) -> TagMetric:
     try:
         ref_sentence, ref_tags = tag_extraction_function(reference_with_tags)
-    except ValueError as e:
+    except Exception as e:
         if permissive:
             print(f"Inconsistent reference, ignoring sentence: {e}")
             return TagMetric(0, 0, 0, 0, 0, 0)
@@ -148,9 +148,9 @@ def evaluate_segment(
 
     try:
         hyp_sentence, hyp_tags = tag_extraction_function(hypothesis_with_tags)
-    except ValueError as e:
+    except Exception as e:
         if permissive:
-            print(e)
+            print(f"Inconsistent hypothesis: {e}")
             return create_inconsistent_tag_metric(len(ref_tags))
         else:
             raise e
@@ -160,8 +160,9 @@ def evaluate_segment(
     counter_hypothesis_tags = Counter(x.content for x in hyp_tags)
     error_message: Optional[str] = None
     if ref_sentence != hyp_sentence:
+        strip_equal = ref_sentence.strip() == hyp_sentence.strip()
         error_message = (f"Reference without tags does not match hypothesis without tags: "
-                         f"{ref_sentence=} {hyp_sentence=}")
+                         f"{ref_sentence=} {hyp_sentence=} {strip_equal=}")
 
     if error_message is None and counter_reference_tags != counter_hypothesis_tags:
         error_message = (f"Inconsistent number of tags between reference and hypothesis, "
