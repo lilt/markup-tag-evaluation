@@ -162,7 +162,8 @@ def evaluate_segment(
     error_message: Optional[str] = None
     if error_message is None and counter_reference_tags != counter_hypothesis_tags:
         error_message = (f"Inconsistent number of tags between reference and hypothesis, "
-                         f"{counter_reference_tags=} {counter_hypothesis_tags=}")
+                         f"{counter_reference_tags=} {counter_hypothesis_tags=} "
+                         f"{reference_with_tags=} {hypothesis_with_tags=}")
 
     if compare_strip:
         ref_sentence = ref_sentence.strip()
