@@ -47,11 +47,11 @@ def main():
 
     all_metrics = TagMetrics([])
     for language, metrics in metrics_by_language.items():
-        sum_language = sum(metrics, start=TagMetric(0, 0, 0, 0, 0, 0, language))
+        sum_language = sum(metrics, start=TagMetric.create_empty(tgt_language=language))
         print(sum_language)
         all_metrics.metrics.append(sum_language)
 
-    sum_all = sum(tag_metrics, start=TagMetric(0, 0, 0, 0, 0, 0, "ALL"))
+    sum_all = sum(tag_metrics, start=TagMetric.create_empty(tgt_language="ALL"))
     print(sum_all)
     all_metrics.metrics.append(sum_all)
 
