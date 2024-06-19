@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 from collections import defaultdict, Counter
+import csv
+import re
 from typing import List, Optional, Callable, Tuple
 from dataclasses import dataclass
 
@@ -10,39 +12,43 @@ from markup_tag_evaluation.parse_tags import Tag
 
 @dataclass
 class TagMetric:
-    number_of_tags: int
+    number_of_ref_tags: int
     number_of_correct_tags: int
     character_difference: int
     number_of_inconsistent_sentences: int
     number_of_tags_in_inconsistent_sentences: int
     number_of_sentences: int
+    tgt_language: str
 
     def accuracy(self) -> float:
-        return self.number_of_correct_tags / max(1, self.number_of_tags)
+        return self.number_of_correct_tags / max(1, self.number_of_ref_tags)
 
     def average_character_difference(self) -> float:
-        return self.character_difference / max(1, self.number_of_tags)
+        return self.character_difference / max(1, self.number_of_ref_tags)
 
     def inconsistent_sentences_percentage(self) -> float:
         return self.number_of_inconsistent_sentences / max(1, self.number_of_sentences)
 
     def __add__(self, other: TagMetric) -> TagMetric:
         return TagMetric(
-            self.number_of_tags + other.number_of_tags,
+            self.number_of_ref_tags + other.number_of_ref_tags,
             self.number_of_correct_tags + other.number_of_correct_tags,
             self.character_difference + other.character_difference,
             self.number_of_inconsistent_sentences + other.number_of_inconsistent_sentences,
             self.number_of_tags_in_inconsistent_sentences +
             other.number_of_tags_in_inconsistent_sentences,
             self.number_of_sentences + other.number_of_sentences,
+            # TODO: ?
+            self.tgt_language,
         )
 
     def __str__(self):
         acc_str = f"Tag Accuracy {self.accuracy():.1%} " \
-                  f"({self.number_of_correct_tags}/{self.number_of_tags})"
+                  f"({self.number_of_correct_tags}/{self.number_of_ref_tags})"
         char_diff_str = f"Average character difference {self.average_character_difference():.1f} " \
-                        f"({self.character_difference}/{self.number_of_tags})"
+                        f"({self.character_difference}/{self.number_of_ref_tags})"
         result_array = [
+            f"Language: {self.tgt_language}",
             acc_str,
             char_diff_str,
         ]
@@ -54,16 +60,42 @@ class TagMetric:
             )
         return "\n".join(result_array)
 
+    def to_dict(self) -> dict:
+        return {
+            "language": self.tgt_language,
+            "accuracy": self.accuracy(),
+            "number_of_correct_tags": self.number_of_correct_tags,
+            "number_of_ref_tags": self.number_of_ref_tags,
+            "number_of_sentences": self.number_of_sentences,
+            "average_character_difference": self.average_character_difference(),
+            "number_of_inconsistent_sentences": self.number_of_inconsistent_sentences,
+            "number_of_tags_in_inconsistent_sentences": self.number_of_tags_in_inconsistent_sentences,
+        }
 
-def create_inconsistent_tag_metric(number_of_tags_in_sentence: int) -> TagMetric:
+
+def create_inconsistent_tag_metric(number_of_tags_in_sentence: int, lang_pair: str) -> TagMetric:
     return TagMetric(
-        number_of_tags=0,
+        number_of_ref_tags=0,
         number_of_correct_tags=0,
         character_difference=0,
         number_of_inconsistent_sentences=1,
         number_of_tags_in_inconsistent_sentences=number_of_tags_in_sentence,
         number_of_sentences=1,
+        tgt_language=lang_pair,
     )
+
+
+@dataclass
+class TagMetrics:
+    metrics: list[TagMetric]
+
+    def to_csv(self, csv_filename):
+        dict_rows = [metric.to_dict() for metric in self.metrics]
+        if len(dict_rows) > 0:
+            with open(csv_filename, 'w', newline='') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=dict_rows[0].keys())
+                writer.writeheader()
+                writer.writerows(dict_rows)
 
 
 def is_sentence_with_tags_valid(sentence: str) -> bool:
@@ -130,8 +162,19 @@ def position_differences(reference_tags: List[Tag], hypothesis_tags: List[Tag]) 
 
     return position_diff_sum
 
+_EXTRACT_LANG_REGEX = re.compile("<LANGUAGE_(..)>")
+
+
+def extract_language(text: str) -> str:
+    matches = _EXTRACT_LANG_REGEX.findall(text)
+    if len(matches) > 0:
+        return matches[0]
+    else:
+        raise ValueError(f"Failed to extract language from: {text}")
+
 
 def evaluate_segment(
+        source_with_tags: str,
         reference_with_tags: str,
         hypothesis_with_tags: str,
         tag_extraction_function: Callable[[str], Tuple[str, List[Tag]]],
@@ -139,11 +182,20 @@ def evaluate_segment(
         compare_strip: bool = False,
 ) -> TagMetric:
     try:
+        tgt_language = extract_language(source_with_tags)
+    except Exception as e:
+        if permissive:
+            print(f"Cannot extract language from source: {source_with_tags}")
+            return TagMetric(0, 0, 0, 0, 0, 0, "")
+        else:
+            raise e
+
+    try:
         ref_sentence, ref_tags = tag_extraction_function(reference_with_tags)
     except Exception as e:
         if permissive:
             print(f"Inconsistent reference, ignoring sentence: {e}")
-            return TagMetric(0, 0, 0, 0, 0, 0)
+            return TagMetric(0, 0, 0, 0, 0, 0, tgt_language)
         else:
             raise e
 
@@ -152,7 +204,7 @@ def evaluate_segment(
     except Exception as e:
         if permissive:
             print(f"Inconsistent hypothesis: {e}")
-            return create_inconsistent_tag_metric(len(ref_tags))
+            return create_inconsistent_tag_metric(len(ref_tags), tgt_language)
         else:
             raise e
 
@@ -176,34 +228,36 @@ def evaluate_segment(
     if error_message is not None:
         if permissive:
             print(error_message)
-            return create_inconsistent_tag_metric(len(ref_tags))
+            return create_inconsistent_tag_metric(len(ref_tags), tgt_language)
         else:
             raise ValueError(error_message)
 
     result = TagMetric(
-        number_of_tags=len(ref_tags),
+        number_of_ref_tags=len(ref_tags),
         number_of_correct_tags=tag_position_matches(ref_tags, hyp_tags),
         character_difference=position_differences(ref_tags, hyp_tags),
         number_of_inconsistent_sentences=0,
         number_of_tags_in_inconsistent_sentences=0,
         number_of_sentences=1,
+        tgt_language=tgt_language,
     )
     return result
 
 
 def evaluate_segments(
+        source_with_tags_list: List[str],
         reference_with_tags_list: List[str],
         hypothesis_with_tags_list: List[str],
         tag_extraction_function: Callable[[str], Tuple[str, List[Tag]]],
         permissive: bool,
         compare_strip: bool = False,
-) -> TagMetric:
-    if len(reference_with_tags_list) != len(hypothesis_with_tags_list):
-        raise ValueError(f"Inconsistent length of arguments: {len(reference_with_tags_list)=} "
+) -> list[TagMetric]:
+    if len(reference_with_tags_list) != len(hypothesis_with_tags_list) or len(source_with_tags_list) != len(reference_with_tags_list):
+        raise ValueError(f"Inconsistent length of arguments: "
+                         f"{len(source_with_tags_list)=} "
+                         f"{len(reference_with_tags_list)=} "
                          f"{len(hypothesis_with_tags_list)=}")
 
-    tag_metric_zero = TagMetric(0, 0, 0, 0, 0, 0)
-    result = sum((evaluate_segment(ref, hyp, tag_extraction_function, permissive, compare_strip) for ref, hyp in
-                  zip(reference_with_tags_list, hypothesis_with_tags_list)),
-                 start=tag_metric_zero)
-    return result
+    results = [evaluate_segment(src, ref, hyp, tag_extraction_function, permissive, compare_strip)
+               for src, ref, hyp in zip(source_with_tags_list, reference_with_tags_list, hypothesis_with_tags_list)]
+    return results

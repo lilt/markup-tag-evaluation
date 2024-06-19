@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 
 import argparse
+from collections import defaultdict
 from typing import List
 
-from markup_tag_evaluation.tag_evaluation import evaluate_segments
+from markup_tag_evaluation.tag_evaluation import TagMetric, TagMetrics, evaluate_segments
 from markup_tag_evaluation.parse_tags import extract_positions, extract_positions_v2
 
 
 def parse_args():
     parser = argparse.ArgumentParser("Calculate the number of correctly placed tags"
                                      " based on a reference and a hypothesis.")
+    parser.add_argument("source", help="Path of the source file including tags.")
     parser.add_argument("reference", help="Path of the reference file including tags.")
     parser.add_argument("hypothesis", help="Path of the hypothesis file including tags.")
     parser.add_argument("--permissive", action="store_true",
@@ -29,6 +31,7 @@ def read_text(path: str) -> List[str]:
 
 def main():
     args = parse_args()
+    source = read_text(args.source)
     reference = read_text(args.reference)
     hypothesis = read_text(args.hypothesis)
 
@@ -37,8 +40,22 @@ def main():
     else:
         extract_tags_fn = extract_positions
 
-    tag_metric = evaluate_segments(reference, hypothesis, extract_tags_fn, args.permissive, args.compare_strip)
-    print(tag_metric)
+    tag_metrics = evaluate_segments(source, reference, hypothesis, extract_tags_fn, args.permissive, args.compare_strip)
+    metrics_by_language = defaultdict(list)
+    for tag_metric in tag_metrics:
+        metrics_by_language[tag_metric.tgt_language].append(tag_metric)
+
+    all_metrics = TagMetrics([])
+    for language, metrics in metrics_by_language.items():
+        sum_language = sum(metrics, start=TagMetric(0, 0, 0, 0, 0, 0, language))
+        print(sum_language)
+        all_metrics.metrics.append(sum_language)
+
+    sum_all = sum(tag_metrics, start=TagMetric(0, 0, 0, 0, 0, 0, "ALL"))
+    print(sum_all)
+    all_metrics.metrics.append(sum_all)
+
+    all_metrics.to_csv("test.csv")
 
 
 if __name__ == "__main__":
