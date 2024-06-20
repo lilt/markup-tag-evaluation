@@ -109,13 +109,16 @@ class TagMetric:
     def to_dict(self) -> dict:
         return {
             "language": self.tgt_language,
+            "num_sentences": self.num_sentences,
             "accuracy": self.accuracy(),
-            "number_of_correct_tags": self.num_correct_tags,
-            "number_of_ref_tags": self.num_ref_tags,
-            "number_of_sentences": self.num_sentences,
+            "num_correct_tags": self.num_correct_tags,
+            "num_ref_tags": self.num_ref_tags,
             "average_character_difference": self.average_character_difference(),
-            "number_of_inconsistent_sentences": self.number_of_inconsistent_sentences(),
-            "number_of_tags_in_inconsistent_sentences": self.num_tags_inconsistent_sentences,
+            "num_inconsistent_total": self.number_of_inconsistent_sentences(),
+            "num_inconsistent_hyp": self.num_inconsistent_hyp,
+            "num_inconsistent_tag_count": self.num_inconsistent_tag_count,
+            "num_inconsistent_text": self.num_inconsistent_text,
+            "num_tags_inconsistent_sentences": self.num_tags_inconsistent_sentences,
         }
 
 

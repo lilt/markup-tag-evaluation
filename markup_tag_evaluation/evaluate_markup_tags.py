@@ -14,6 +14,7 @@ def parse_args():
     parser.add_argument("source", help="Path of the source file including tags.")
     parser.add_argument("reference", help="Path of the reference file including tags.")
     parser.add_argument("hypothesis", help="Path of the hypothesis file including tags.")
+    parser.add_argument("csvout", help="Path of the hypothesis file including tags.")
     parser.add_argument("--permissive", action="store_true",
                         help="Do not throw errors for inconsistent reference and hypothesis tags")
     parser.add_argument("--compare_strip", action="store_true",
@@ -54,8 +55,7 @@ def main():
     sum_all = sum(tag_metrics, start=TagMetric.create_empty(tgt_language="ALL"))
     print(sum_all)
     all_metrics.metrics.append(sum_all)
-
-    all_metrics.to_csv("test.csv")
+    all_metrics.to_csv(args.csvout)
 
 
 if __name__ == "__main__":
