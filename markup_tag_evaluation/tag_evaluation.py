@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 from collections import defaultdict, Counter
-from typing import List, Tuple, NamedTuple, Optional
+from typing import List, Optional, Callable, Tuple
 from dataclasses import dataclass
 
-
-class Tag(NamedTuple):
-    content: str
-    position: int
+from markup_tag_evaluation.parse_tags import Tag
 
 
 @dataclass
@@ -92,34 +89,6 @@ def is_sentence_with_tags_valid(sentence: str) -> bool:
     return len(stack) == 0
 
 
-def extract_positions(sentence_with_tags: str) -> Tuple[str, List[Tag]]:
-    """ Returns the tuple (sentence, position_to_tags)
-      sentence: sentence without tags
-      position_to_tags: mapping of positon to an array of tags
-    >>> extract_positions(" Hello world ")
-    (' Hello world ', [])
-    >>> extract_positions("<b>Hello</b> world!")
-    ('Hello world!', [Tag(content='b', position=0), Tag(content='/b', position=5)])
-    """
-    if not is_sentence_with_tags_valid(sentence_with_tags):
-        raise ValueError(f"Invalid tag structure: {sentence_with_tags=}")
-
-    tags: List[Tag] = []
-
-    # First array element will have no tags in it, e.g "Hello <1> there." => ["Hello ", "1> there."]
-    splitted_by_tags = sentence_with_tags.split("<")
-    sentence, tag_opening_splits = splitted_by_tags[0], splitted_by_tags[1:]
-
-    for tag_content_to_next_tag in tag_opening_splits:
-        # if tag is open, it has to be closed somewhere
-        tag_content, string_after_tag = tag_content_to_next_tag.split(">")
-
-        tags.append(Tag(tag_content, len(sentence)))
-        sentence += string_after_tag
-
-    return sentence, tags
-
-
 def tag_position_matches(reference_tags: List[Tag], hypothesis_tags: List[Tag]) -> int:
     """
     Returns the number of tags that are at the same character position
@@ -165,11 +134,20 @@ def position_differences(reference_tags: List[Tag], hypothesis_tags: List[Tag]) 
 def evaluate_segment(
         reference_with_tags: str,
         hypothesis_with_tags: str,
+        tag_extraction_function: Callable[[str], Tuple[str, List[Tag]]],
         permissive: bool,
 ) -> TagMetric:
-    ref_sentence, ref_tags = extract_positions(reference_with_tags)
     try:
-        hyp_sentence, hyp_tags = extract_positions(hypothesis_with_tags)
+        ref_sentence, ref_tags = tag_extraction_function(reference_with_tags)
+    except ValueError as e:
+        if permissive:
+            print(f"Inconsistent reference, ignoring sentence: {e}")
+            return TagMetric(0, 0, 0, 0, 0, 0)
+        else:
+            raise e
+
+    try:
+        hyp_sentence, hyp_tags = tag_extraction_function(hypothesis_with_tags)
     except ValueError as e:
         if permissive:
             print(e)
@@ -209,6 +187,7 @@ def evaluate_segment(
 def evaluate_segments(
         reference_with_tags_list: List[str],
         hypothesis_with_tags_list: List[str],
+        tag_extraction_function: Callable[[str], Tuple[str, List[Tag]]],
         permissive: bool,
 ) -> TagMetric:
     if len(reference_with_tags_list) != len(hypothesis_with_tags_list):
@@ -216,7 +195,7 @@ def evaluate_segments(
                          f"{len(hypothesis_with_tags_list)=}")
 
     tag_metric_zero = TagMetric(0, 0, 0, 0, 0, 0)
-    result = sum((evaluate_segment(ref, hyp, permissive) for ref, hyp in
+    result = sum((evaluate_segment(ref, hyp, tag_extraction_function, permissive) for ref, hyp in
                   zip(reference_with_tags_list, hypothesis_with_tags_list)),
                  start=tag_metric_zero)
     return result
