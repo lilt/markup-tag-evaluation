@@ -108,7 +108,7 @@ class TagMetric:
 
     def to_dict(self) -> dict:
         return {
-            "language": self.tgt_language,
+            "tgt_language": self.tgt_language,
             "num_sentences": self.num_sentences,
             "accuracy": self.accuracy(),
             "num_correct_tags": self.num_correct_tags,
