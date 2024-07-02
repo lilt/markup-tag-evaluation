@@ -12,7 +12,7 @@ from markup_tag_evaluation.parse_tags import Tag
 
 
 class InconsistencyType(Enum):
-    HYPOTHESYS = "HYPOTHESYS"
+    HYPOTHESIS = "HYPOTHESIS"
     TAG_COUNT = "TAG_COUNT"
     TEXT = "TEXT"
 
