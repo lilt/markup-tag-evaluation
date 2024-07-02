@@ -59,6 +59,7 @@ def main():
     all_metrics.metrics.append(sum_all)
 
     if args.csvout:
+        print(f"Writing CSV with results to {args.csvout}")
         all_metrics.to_csv(args.csvout)
 
 
