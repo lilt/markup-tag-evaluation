@@ -11,10 +11,10 @@ from markup_tag_evaluation.parse_tags import extract_positions, extract_position
 def parse_args():
     parser = argparse.ArgumentParser("Calculate the number of correctly placed tags"
                                      " based on a reference and a hypothesis.")
-    parser.add_argument("source", help="Path of the source file including tags.")
     parser.add_argument("reference", help="Path of the reference file including tags.")
     parser.add_argument("hypothesis", help="Path of the hypothesis file including tags.")
-    parser.add_argument("csvout", help="Path of the hypothesis file including tags.")
+    parser.add_argument("--source", help="Path of the source file including tags. Used mostly for knowing the language of each sentence.")
+    parser.add_argument("--csvout", help="Path where to store a CSV with results aggregated by language.")
     parser.add_argument("--permissive", action="store_true",
                         help="Do not throw errors for inconsistent reference and hypothesis tags")
     parser.add_argument("--compare_strip", action="store_true",
@@ -32,9 +32,11 @@ def read_text(path: str) -> List[str]:
 
 def main():
     args = parse_args()
-    source = read_text(args.source)
     reference = read_text(args.reference)
     hypothesis = read_text(args.hypothesis)
+    source = None
+    if args.source:
+        source = read_text(args.source)
 
     if args.use_v2_tag_format:
         extract_tags_fn = extract_positions_v2
@@ -55,7 +57,9 @@ def main():
     sum_all = sum(tag_metrics, start=TagMetric.create_empty(tgt_language="ALL"))
     print(sum_all)
     all_metrics.metrics.append(sum_all)
-    all_metrics.to_csv(args.csvout)
+
+    if args.csvout:
+        all_metrics.to_csv(args.csvout)
 
 
 if __name__ == "__main__":

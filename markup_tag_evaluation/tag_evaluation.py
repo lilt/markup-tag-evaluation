@@ -50,7 +50,7 @@ class TagMetric:
         metric = TagMetric.create_empty(tgt_language=tgt_language)
         metric.num_sentences = 1
         metric.num_tags_inconsistent_sentences = number_of_tags_in_sentence
-        if inconsistency_type is InconsistencyType.HYPOTHESYS:
+        if inconsistency_type is InconsistencyType.HYPOTHESIS:
             metric.num_inconsistent_hyp = 1
         elif inconsistency_type is InconsistencyType.TAG_COUNT:
             metric.num_inconsistent_tag_count = 1
@@ -210,22 +210,26 @@ def extract_language(text: str) -> str:
         raise ValueError(f"Failed to extract language from: {text}")
 
 
+_DEFAULT_LANG = "UNK"
+
+
 def evaluate_segment(
-        source_with_tags: str,
+        source_with_tags: Optional[str],
         reference_with_tags: str,
         hypothesis_with_tags: str,
         tag_extraction_function: Callable[[str], Tuple[str, List[Tag]]],
         permissive: bool,
         compare_strip: bool = False,
 ) -> TagMetric:
-    try:
-        tgt_language = extract_language(source_with_tags)
-    except Exception as e:
-        if permissive:
-            print(f"Cannot extract language from source: {source_with_tags}")
-            return TagMetric.create_empty(tgt_language="")
-        else:
-            raise e
+    tgt_language = _DEFAULT_LANG
+    if source_with_tags is not None:
+        try:
+            tgt_language = extract_language(source_with_tags)
+        except Exception as e:
+            if permissive:
+                print(f"Cannot extract language from source: {source_with_tags}")
+            else:
+                raise e
 
     try:
         ref_sentence, ref_tags = tag_extraction_function(reference_with_tags)
@@ -244,7 +248,7 @@ def evaluate_segment(
             return TagMetric.create_inconsistent(
                 number_of_tags_in_sentence=len(ref_tags),
                 tgt_language=tgt_language,
-                inconsistency_type=InconsistencyType.HYPOTHESYS,
+                inconsistency_type=InconsistencyType.HYPOTHESIS,
             )
         else:
             raise e
@@ -298,19 +302,29 @@ def evaluate_segment(
 
 
 def evaluate_segments(
-        source_with_tags_list: List[str],
+        source_with_tags_list: Optional[List[str]],
         reference_with_tags_list: List[str],
         hypothesis_with_tags_list: List[str],
         tag_extraction_function: Callable[[str], Tuple[str, List[Tag]]],
         permissive: bool,
         compare_strip: bool = False,
 ) -> list[TagMetric]:
-    if len(reference_with_tags_list) != len(hypothesis_with_tags_list) or len(source_with_tags_list) != len(reference_with_tags_list):
+    if (len(reference_with_tags_list) != len(hypothesis_with_tags_list)) or \
+       (source_with_tags_list is not None and len(source_with_tags_list) != len(reference_with_tags_list)):
+        if source_with_tags_list is None:
+            source_err = f"{source_with_tags_list=}"
+        else:
+            source_err = f"{len(source_with_tags_list)=}"
         raise ValueError(f"Inconsistent length of arguments: "
-                         f"{len(source_with_tags_list)=} "
                          f"{len(reference_with_tags_list)=} "
-                         f"{len(hypothesis_with_tags_list)=}")
+                         f"{len(hypothesis_with_tags_list)=} "
+                         f"{source_err}")
+
+    if source_with_tags_list is None:
+        sources_list = [None] * len(reference_with_tags_list)
+    else:
+        sources_list = source_with_tags_list
 
     results = [evaluate_segment(src, ref, hyp, tag_extraction_function, permissive, compare_strip)
-               for src, ref, hyp in zip(source_with_tags_list, reference_with_tags_list, hypothesis_with_tags_list)]
+               for src, ref, hyp in zip(sources_list, reference_with_tags_list, hypothesis_with_tags_list)]
     return results
