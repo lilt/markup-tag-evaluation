@@ -13,14 +13,17 @@ def parse_args():
                                      " based on a reference and a hypothesis.")
     parser.add_argument("reference", help="Path of the reference file including tags.")
     parser.add_argument("hypothesis", help="Path of the hypothesis file including tags.")
-    parser.add_argument("--source", help="Path of the source file including tags. Used mostly for knowing the language of each sentence.")
-    parser.add_argument("--csvout", help="Path where to store a CSV with results aggregated by language.")
+    parser.add_argument("--source", help="Path of the source file including tags. Used \
+                        mostly for knowing the language of each sentence.")
+    parser.add_argument("--csvout",
+                        help="Path where to store a CSV with results aggregated by language.")
     parser.add_argument("--permissive", action="store_true",
                         help="Do not throw errors for inconsistent reference and hypothesis tags")
     parser.add_argument("--compare_strip", action="store_true",
                         help="Compare stripped strings without tags")
     parser.add_argument("--use_v2_tag_format", action="store_true",
-                        help="Use version 2 tag format that allows arbitrary tag contents tag values")
+                        help="Use version 2 tag format that allows arbitrary tag contents \
+                            tag values")
 
     return parser.parse_args()
 
@@ -43,7 +46,14 @@ def main():
     else:
         extract_tags_fn = extract_positions
 
-    tag_metrics = evaluate_segments(source, reference, hypothesis, extract_tags_fn, args.permissive, args.compare_strip)
+    tag_metrics = evaluate_segments(
+        source,
+        reference,
+        hypothesis,
+        extract_tags_fn,
+        args.permissive,
+        args.compare_strip,
+    )
     metrics_by_language = defaultdict(list)
     for tag_metric in tag_metrics:
         metrics_by_language[tag_metric.tgt_language].append(tag_metric)

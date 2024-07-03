@@ -5,7 +5,7 @@ from collections import defaultdict, Counter
 import csv
 from enum import Enum
 import re
-from typing import List, Optional, Callable, Tuple
+from typing import List, Optional, Callable, Tuple, Union
 from dataclasses import dataclass
 
 from markup_tag_evaluation.parse_tags import Tag
@@ -46,7 +46,11 @@ class TagMetric:
         )
 
     @staticmethod
-    def create_inconsistent(number_of_tags_in_sentence: int, tgt_language: str, inconsistency_type: InconsistencyType) -> TagMetric:
+    def create_inconsistent(
+        number_of_tags_in_sentence: int,
+        tgt_language: str,
+        inconsistency_type: InconsistencyType,
+    ) -> TagMetric:
         metric = TagMetric.create_empty(tgt_language=tgt_language)
         metric.num_sentences = 1
         metric.num_tags_inconsistent_sentences = number_of_tags_in_sentence
@@ -67,9 +71,11 @@ class TagMetric:
             num_correct_tags=self.num_correct_tags + other.num_correct_tags,
             character_difference=self.character_difference + other.character_difference,
             num_inconsistent_hyp=self.num_inconsistent_hyp + other.num_inconsistent_hyp,
-            num_inconsistent_tag_count=self.num_inconsistent_tag_count + other.num_inconsistent_tag_count,
+            num_inconsistent_tag_count=(self.num_inconsistent_tag_count +
+                                        other.num_inconsistent_tag_count),
             num_inconsistent_text=self.num_inconsistent_text + other.num_inconsistent_text,
-            num_tags_inconsistent_sentences=self.num_tags_inconsistent_sentences + other.num_tags_inconsistent_sentences,
+            num_tags_inconsistent_sentences=(self.num_tags_inconsistent_sentences +
+                                             other.num_tags_inconsistent_sentences),
             num_sentences=self.num_sentences + other.num_sentences,
             tgt_language=self.tgt_language,
         )
@@ -199,6 +205,7 @@ def position_differences(reference_tags: List[Tag], hypothesis_tags: List[Tag]) 
 
     return position_diff_sum
 
+
 _EXTRACT_LANG_REGEX = re.compile("<LANGUAGE_(..)>")
 
 
@@ -260,7 +267,7 @@ def evaluate_segment(
         error_message = (f"Inconsistent number of tags between reference and hypothesis, "
                          f"{counter_reference_tags=} {counter_hypothesis_tags=} "
                          f"{reference_with_tags=} {hypothesis_with_tags=}")
-        if permissive:                
+        if permissive:
             print(error_message)
             return TagMetric.create_inconsistent(
                 number_of_tags_in_sentence=len(ref_tags),
@@ -310,7 +317,8 @@ def evaluate_segments(
         compare_strip: bool = False,
 ) -> list[TagMetric]:
     if (len(reference_with_tags_list) != len(hypothesis_with_tags_list)) or \
-       (source_with_tags_list is not None and len(source_with_tags_list) != len(reference_with_tags_list)):
+       (source_with_tags_list is not None and
+           len(source_with_tags_list) != len(reference_with_tags_list)):
         if source_with_tags_list is None:
             source_err = f"{source_with_tags_list=}"
         else:
@@ -320,11 +328,13 @@ def evaluate_segments(
                          f"{len(hypothesis_with_tags_list)=} "
                          f"{source_err}")
 
+    sources_list: Union[List[str], List[None]] = []
     if source_with_tags_list is None:
         sources_list = [None] * len(reference_with_tags_list)
     else:
         sources_list = source_with_tags_list
 
     results = [evaluate_segment(src, ref, hyp, tag_extraction_function, permissive, compare_strip)
-               for src, ref, hyp in zip(sources_list, reference_with_tags_list, hypothesis_with_tags_list)]
+               for src, ref, hyp in
+               zip(sources_list, reference_with_tags_list, hypothesis_with_tags_list)]
     return results
