@@ -315,6 +315,7 @@ def evaluate_segments(
         tag_extraction_function: Callable[[str], Tuple[str, List[Tag]]],
         permissive: bool,
         compare_strip: bool = False,
+        backup_hypothesis_with_tags_list: Optional[List[str]] = None,
 ) -> list[TagMetric]:
     if (len(reference_with_tags_list) != len(hypothesis_with_tags_list)) or \
        (source_with_tags_list is not None and
@@ -327,14 +328,27 @@ def evaluate_segments(
                          f"{len(reference_with_tags_list)=} "
                          f"{len(hypothesis_with_tags_list)=} "
                          f"{source_err}")
+    if (backup_hypothesis_with_tags_list is not None and
+            len(reference_with_tags_list) != len(backup_hypothesis_with_tags_list)):
+        raise ValueError(f"Inconsistent length of reference and backup hypothesis "
+                         f"{len(reference_with_tags_list)=} "
+                         f"{len(backup_hypothesis_with_tags_list)=}")
 
-    sources_list: Union[List[str], List[None]] = []
-    if source_with_tags_list is None:
-        sources_list = [None] * len(reference_with_tags_list)
-    else:
-        sources_list = source_with_tags_list
+    results = []
+    for i, (ref, hyp) in enumerate(zip(reference_with_tags_list, hypothesis_with_tags_list)):
+        src = source_with_tags_list[i] if source_with_tags_list is not None else None
+        backup_hyp = backup_hypothesis_with_tags_list[i] \
+            if backup_hypothesis_with_tags_list is not None else None
 
-    results = [evaluate_segment(src, ref, hyp, tag_extraction_function, permissive, compare_strip)
-               for src, ref, hyp in
-               zip(sources_list, reference_with_tags_list, hypothesis_with_tags_list)]
+        permissive_first_run = permissive and backup_hyp is None
+        try:
+            res = evaluate_segment(src, ref, hyp, tag_extraction_function,
+                                   permissive_first_run, compare_strip)
+        except Exception as e:
+            if backup_hyp is not None:
+                res = evaluate_segment(src, ref, backup_hyp, tag_extraction_function,
+                                       permissive, compare_strip)
+            else:
+                raise e
+        results.append(res)
     return results

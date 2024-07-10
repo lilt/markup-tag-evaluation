@@ -2,7 +2,7 @@
 
 import argparse
 from collections import defaultdict
-from typing import List
+from typing import List, Optional
 
 from markup_tag_evaluation.tag_evaluation import TagMetric, TagMetrics, evaluate_segments
 from markup_tag_evaluation.parse_tags import extract_positions, extract_positions_v2
@@ -24,6 +24,9 @@ def parse_args():
     parser.add_argument("--use_v2_tag_format", action="store_true",
                         help="Use version 2 tag format that allows arbitrary tag contents \
                             tag values")
+    parser.add_argument("--backup_hypothesis",
+                        help="Backup hypothesis in case the original "
+                             "hypothesis has inconsistent tags")
 
     return parser.parse_args()
 
@@ -33,10 +36,15 @@ def read_text(path: str) -> List[str]:
         return [" ".join(s.split()) for s in f]
 
 
-def main():
+def main() -> None:
     args = parse_args()
     reference = read_text(args.reference)
     hypothesis = read_text(args.hypothesis)
+    if args.backup_hypothesis is not None:
+        backup_hypothesis: Optional[List[str]] = read_text(args.backup_hypothesis)
+    else:
+        backup_hypothesis = None
+
     source = None
     if args.source:
         source = read_text(args.source)
@@ -53,6 +61,7 @@ def main():
         extract_tags_fn,
         args.permissive,
         args.compare_strip,
+        backup_hypothesis,
     )
     metrics_by_language = defaultdict(list)
     for tag_metric in tag_metrics:
