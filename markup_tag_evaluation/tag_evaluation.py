@@ -183,6 +183,21 @@ def tag_position_matches(reference_tags: List[Tag], hypothesis_tags: List[Tag]) 
     return correct
 
 
+def potentially_expand_self_closing_tags(
+        hyp_tags: List[Tag],
+        reference_tags_counter: Counter[str],
+) -> List[Tag]:
+    hyp_tags_counter = Counter(t.content for t in hyp_tags)
+    for hyp_t in hyp_tags:
+        closing_counterpart_str = "/" + hyp_t.content
+        if (closing_counterpart_str not in hyp_tags_counter
+                and closing_counterpart_str in reference_tags_counter):
+            new_closing_tag = Tag(closing_counterpart_str, hyp_t.position)
+            hyp_tags.append(new_closing_tag)
+            hyp_tags_counter[closing_counterpart_str] += 1
+    return hyp_tags
+
+
 def position_differences(reference_tags: List[Tag], hypothesis_tags: List[Tag]) -> int:
     """ Returns the sum character difference between matching tags in the reference and hypothesis.
         Is generous and selects the closest hypothesis tag with the same content
@@ -262,7 +277,12 @@ def evaluate_segment(
 
     # Check for inconsistencies between reference and hypothesis
     counter_reference_tags = Counter(x.content for x in ref_tags)
+    if permissive:
+        hyp_tags = potentially_expand_self_closing_tags(
+            hyp_tags, counter_reference_tags
+        )
     counter_hypothesis_tags = Counter(x.content for x in hyp_tags)
+
     if counter_reference_tags != counter_hypothesis_tags:
         error_message = (f"Inconsistent number of tags between reference and hypothesis, "
                          f"{counter_reference_tags=} {counter_hypothesis_tags=} "
