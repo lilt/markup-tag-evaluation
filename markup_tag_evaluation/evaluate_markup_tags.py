@@ -33,7 +33,7 @@ def parse_args():
 
 def read_text(path: str) -> List[str]:
     with open(path, "r", encoding="utf-8") as f:
-        return [" ".join(s.split()) for s in f]
+        return [s for s in f]
 
 
 def main() -> None:
