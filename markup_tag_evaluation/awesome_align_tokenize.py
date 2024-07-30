@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import argparse
 from io import TextIOWrapper
 from awesome_align.tokenization_bert import BertTokenizer
