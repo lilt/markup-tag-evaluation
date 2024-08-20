@@ -4,11 +4,18 @@ from io import TextIOWrapper
 from awesome_align.tokenization_bert import BertTokenizer
 from awesome_align.tokenization_utils import PreTrainedTokenizer
 
+UNK_TOKEN = "[UNK]"
+
 
 def write_lines(f: TextIOWrapper, texts: list[str]):
     for l in texts:
         f.write(l)
         f.write("\n")
+
+def get_unk_tokens(sentence: str, tokenizer: BertTokenizer) -> list[str]:
+    cleaned_sentence = "".join(tokenizer.basic_tokenizer.tokenize(sentence))
+    unk_tokens = [x for x in cleaned_sentence if x not in tokenizer.vocab]
+    return unk_tokens
 
 
 if __name__ == "__main__":
@@ -47,6 +54,16 @@ if __name__ == "__main__":
 
         src_sub = " ".join(token_src).replace(" ##", " ")
         tgt_sub = " ".join(token_tgt).replace(" ##", " ")
+        # Remove unks
+        src_unk_tokens = get_unk_tokens(src, tokenizer)
+        tgt_unk_tokens = get_unk_tokens(tgt, tokenizer)
+        for unk_tok in src_unk_tokens:
+            src_sub = src_sub.replace(UNK_TOKEN, unk_tok, 1)
+        for unk_tok in tgt_unk_tokens:
+            tgt_sub = tgt_sub.replace(UNK_TOKEN, unk_tok, 1)
+        assert not UNK_TOKEN in src_sub
+        assert not UNK_TOKEN in tgt_sub
+
         src_tokenized.append(src_sub)
         tgt_tokenized.append(tgt_sub)
         all_tokenized.append(f"{src_sub} ||| {tgt_sub}")
