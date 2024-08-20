@@ -14,7 +14,9 @@ def write_lines(f: TextIOWrapper, texts: list[str]):
 
 
 def get_unk_tokens(sentence: str, tokenizer: BertTokenizer) -> list[str]:
-    cleaned_sentence = "".join(tokenizer.basic_tokenizer.tokenize(sentence))
+    cleaned_sentence_ar = tokenizer.basic_tokenizer.tokenize(
+            sentence, never_split=tokenizer.all_special_tokens)
+    cleaned_sentence = "".join(cleaned_sentence_ar)
     unk_tokens = [x for x in cleaned_sentence if x not in tokenizer.vocab]
     return unk_tokens
 
