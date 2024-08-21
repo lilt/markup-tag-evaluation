@@ -29,10 +29,11 @@ class TagMetric:
 
     num_tags_inconsistent_sentences: int
     num_sentences: int
+    src_language: str
     tgt_language: str
 
     @staticmethod
-    def create_empty(tgt_language: str) -> TagMetric:
+    def create_empty(src_language:str, tgt_language: str) -> TagMetric:
         return TagMetric(
             num_ref_tags=0,
             num_correct_tags=0,
@@ -42,16 +43,18 @@ class TagMetric:
             num_inconsistent_text=0,
             num_tags_inconsistent_sentences=0,
             num_sentences=0,
+            src_language=src_language,
             tgt_language=tgt_language,
         )
 
     @staticmethod
     def create_inconsistent(
         number_of_tags_in_sentence: int,
+        src_language: str,
         tgt_language: str,
         inconsistency_type: InconsistencyType,
     ) -> TagMetric:
-        metric = TagMetric.create_empty(tgt_language=tgt_language)
+        metric = TagMetric.create_empty(src_language=src_language, tgt_language=tgt_language)
         metric.num_sentences = 1
         metric.num_tags_inconsistent_sentences = number_of_tags_in_sentence
         if inconsistency_type is InconsistencyType.HYPOTHESIS:
@@ -77,6 +80,7 @@ class TagMetric:
             num_tags_inconsistent_sentences=(self.num_tags_inconsistent_sentences +
                                              other.num_tags_inconsistent_sentences),
             num_sentences=self.num_sentences + other.num_sentences,
+            src_language=self.src_language,
             tgt_language=self.tgt_language,
         )
 
@@ -86,7 +90,7 @@ class TagMetric:
         char_diff_str = f"Average character difference {self.average_character_difference():.1f} " \
                         f"({self.character_difference}/{self.num_ref_tags})"
         result_array = [
-            f"Language: {self.tgt_language}",
+            f"Language pair: {self.src_language}-{self.tgt_language}",
             acc_str,
             char_diff_str,
         ]
@@ -114,6 +118,7 @@ class TagMetric:
 
     def to_dict(self) -> dict:
         return {
+            "src_language": self.src_language,
             "tgt_language": self.tgt_language,
             "num_sentences": self.num_sentences,
             "accuracy": self.accuracy(),
@@ -236,29 +241,27 @@ _DEFAULT_LANG = "UNK"
 
 
 def evaluate_segment(
-        source_with_tags: Optional[str],
+        src_lang: Optional[str],
+        tgt_lang: Optional[str],
         reference_with_tags: str,
         hypothesis_with_tags: str,
         tag_extraction_function: Callable[[str], Tuple[str, List[Tag]]],
         permissive: bool,
         compare_strip: bool = False,
 ) -> TagMetric:
+    src_language = _DEFAULT_LANG
     tgt_language = _DEFAULT_LANG
-    if source_with_tags is not None:
-        try:
-            tgt_language = extract_language(source_with_tags)
-        except Exception as e:
-            if permissive:
-                print(f"Cannot extract language from source: {source_with_tags}")
-            else:
-                raise e
+    if src_lang is not None:
+        src_language = src_lang.strip()
+    if tgt_lang is not None:
+        tgt_language = tgt_lang.strip()
 
     try:
         ref_sentence, ref_tags = tag_extraction_function(reference_with_tags)
     except Exception as e:
         if permissive:
             print(f"Inconsistent reference, ignoring sentence: {e}")
-            return TagMetric.create_empty(tgt_language=tgt_language)
+            return TagMetric.create_empty(src_language=src_language, tgt_language=tgt_language)
         else:
             raise e
 
@@ -269,6 +272,7 @@ def evaluate_segment(
             print(f"Inconsistent hypothesis: {e}")
             return TagMetric.create_inconsistent(
                 number_of_tags_in_sentence=len(ref_tags),
+                src_language=src_language,
                 tgt_language=tgt_language,
                 inconsistency_type=InconsistencyType.HYPOTHESIS,
             )
@@ -291,6 +295,7 @@ def evaluate_segment(
             print(error_message)
             return TagMetric.create_inconsistent(
                 number_of_tags_in_sentence=len(ref_tags),
+                src_language=src_language,
                 tgt_language=tgt_language,
                 inconsistency_type=InconsistencyType.TAG_COUNT,
             )
@@ -308,6 +313,7 @@ def evaluate_segment(
             print(error_message)
             return TagMetric.create_inconsistent(
                 number_of_tags_in_sentence=len(ref_tags),
+                src_language=src_language,
                 tgt_language=tgt_language,
                 inconsistency_type=InconsistencyType.TEXT,
             )
@@ -323,31 +329,37 @@ def evaluate_segment(
         num_inconsistent_text=0,
         num_tags_inconsistent_sentences=0,
         num_sentences=1,
+        src_language=src_language,
         tgt_language=tgt_language,
     )
     return result
 
 
 def evaluate_segments(
-        source_with_tags_list: Optional[List[str]],
         reference_with_tags_list: List[str],
         hypothesis_with_tags_list: List[str],
         tag_extraction_function: Callable[[str], Tuple[str, List[Tag]]],
         permissive: bool,
         compare_strip: bool = False,
+        source_lang: Optional[List[str]] = None,
+        target_lang: Optional[List[str]] = None,
         backup_hypothesis_with_tags_list: Optional[List[str]] = None,
 ) -> list[TagMetric]:
-    if (len(reference_with_tags_list) != len(hypothesis_with_tags_list)) or \
-       (source_with_tags_list is not None and
-           len(source_with_tags_list) != len(reference_with_tags_list)):
-        if source_with_tags_list is None:
-            source_err = f"{source_with_tags_list=}"
-        else:
-            source_err = f"{len(source_with_tags_list)=}"
+    if (len(reference_with_tags_list) != len(hypothesis_with_tags_list)):
         raise ValueError(f"Inconsistent length of arguments: "
                          f"{len(reference_with_tags_list)=} "
-                         f"{len(hypothesis_with_tags_list)=} "
-                         f"{source_err}")
+                         f"{len(hypothesis_with_tags_list)=}")
+
+    if source_lang is not None and len(reference_with_tags_list) != len(source_lang):
+        raise ValueError(f"Inconsistent length of reference and source languages "
+                         f"{len(reference_with_tags_list)=} "
+                         f"{len(source_lang)=}")
+
+    if target_lang is not None and len(reference_with_tags_list) != len(target_lang):
+        raise ValueError(f"Inconsistent length of reference and source languages "
+                         f"{len(reference_with_tags_list)=} "
+                         f"{len(target_lang)=}")
+
     if (backup_hypothesis_with_tags_list is not None and
             len(reference_with_tags_list) != len(backup_hypothesis_with_tags_list)):
         raise ValueError(f"Inconsistent length of reference and backup hypothesis "
@@ -356,17 +368,18 @@ def evaluate_segments(
 
     results = []
     for i, (ref, hyp) in enumerate(zip(reference_with_tags_list, hypothesis_with_tags_list)):
-        src = source_with_tags_list[i] if source_with_tags_list is not None else None
+        src_lang = source_lang[i] if source_lang is not None else None
+        tgt_lang = target_lang[i] if target_lang is not None else None
         backup_hyp = backup_hypothesis_with_tags_list[i] \
             if backup_hypothesis_with_tags_list is not None else None
 
         permissive_first_run = permissive and backup_hyp is None
         try:
-            res = evaluate_segment(src, ref, hyp, tag_extraction_function,
+            res = evaluate_segment(src_lang, tgt_lang, ref, hyp, tag_extraction_function,
                                    permissive_first_run, compare_strip)
         except Exception as e:
             if backup_hyp is not None:
-                res = evaluate_segment(src, ref, backup_hyp, tag_extraction_function,
+                res = evaluate_segment(src_lang, tgt_lang, ref, backup_hyp, tag_extraction_function,
                                        permissive, compare_strip)
             else:
                 raise e
