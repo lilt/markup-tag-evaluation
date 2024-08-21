@@ -33,7 +33,7 @@ class TagMetric:
     tgt_language: str
 
     @staticmethod
-    def create_empty(src_language:str, tgt_language: str) -> TagMetric:
+    def create_empty(src_language: str, tgt_language: str) -> TagMetric:
         return TagMetric(
             num_ref_tags=0,
             num_correct_tags=0,
