@@ -41,9 +41,9 @@ def main() -> None:
     reference = read_text(args.reference)
     hypothesis = read_text(args.hypothesis)
 
-    backup_hypothesis = None
+    backup_hypothesis: Optional[List[str]] = None
     if args.backup_hypothesis is not None:
-        backup_hypothesis: Optional[List[str]] = read_text(args.backup_hypothesis)
+        backup_hypothesis = read_text(args.backup_hypothesis)
 
     source_lang = None
     if args.source_lang:
