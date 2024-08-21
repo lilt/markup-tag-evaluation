@@ -14,9 +14,12 @@ def write_lines(f: TextIOWrapper, texts: list[str]):
 
 
 def get_unk_tokens(sentence: str, tokenizer: BertTokenizer) -> list[str]:
+    """ Returns a list of characters that lead to unks when using the tokenizer """
+    # The BertTokenizer first removes whitespaces, we replicate that behavior:
     cleaned_sentence_ar = tokenizer.basic_tokenizer.tokenize(
             sentence, never_split=tokenizer.all_special_tokens)
     cleaned_sentence = "".join(cleaned_sentence_ar)
+    # Afterwards, we extract characters that are not part of the tokenizer's vocab
     unk_tokens = [x for x in cleaned_sentence if x not in tokenizer.vocab]
     return unk_tokens
 
