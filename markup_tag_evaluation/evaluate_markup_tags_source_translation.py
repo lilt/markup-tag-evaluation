@@ -24,6 +24,7 @@ def read_text(path: str) -> List[str]:
 
 def clean_translation(segment: str) -> str:
     segment = segment.replace(" > ", " &gt; ").replace(" < ", " &lt; ")
+    segment = segment.replace("#>", "#&gt;")
 
     cnt_greater = segment.count(">")
     cnt_smaller = segment.count("<")
@@ -44,13 +45,14 @@ def main() -> None:
     number_of_unmatched_tags = 0
 
     for src, trans in zip(source_lines, translation_lines, strict=True):
+        trans = clean_translation(trans)
         _, src_tags = extract_positions(src)
         if len(src_tags) > 0:
             sentences_with_tags += 1
             number_of_tags += len(src_tags)
 
         try:
-            _, trans_tags = extract_positions(clean_translation(trans))
+            _, trans_tags = extract_positions(trans)
         except ValueError:
             if args.debug:
                 print(f"Invalid:\n{src=}\n{trans=}\n")
