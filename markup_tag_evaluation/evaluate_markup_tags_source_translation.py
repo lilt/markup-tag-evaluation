@@ -12,6 +12,7 @@ def parse_args():
                                      "from the source are present in the translation.")
     parser.add_argument("source", help="Path of the reference file including tags.")
     parser.add_argument("translation", help="Path of the hypothesis file including tags.")
+    parser.add_argument("--debug", action="store_true", help="print debug output")
 
     return parser.parse_args()
 
@@ -22,11 +23,12 @@ def read_text(path: str) -> List[str]:
 
 
 def clean_translation(segment: str) -> str:
+    segment = segment.replace(" > ", " &gt; ").replace(" < ", " &lt; ")
+
     cnt_greater = segment.count(">")
     cnt_smaller = segment.count("<")
-    # there should not be unmatched <> in the translation, try to clean them
     if cnt_greater != cnt_smaller and cnt_greater <= 1 and cnt_smaller <= 1:
-        return segment.replace("<", "").replace(">", "")
+        return segment.replace("<", "&lt;").replace(">", "&gt;")
     else:
         return segment
 
@@ -50,7 +52,8 @@ def main() -> None:
         try:
             _, trans_tags = extract_positions(clean_translation(trans))
         except ValueError:
-            print(f"Invalid:\n{src=}\n{trans=}\n")
+            if args.debug:
+                print(f"Invalid:\n{src=}\n{trans=}\n")
             invalid_tag_structure += 1
             number_of_unmatched_tags += len(src_tags)
             continue
